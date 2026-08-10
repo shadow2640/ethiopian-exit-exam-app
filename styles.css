@@ -1938,3 +1938,40 @@ a:hover {
   background: linear-gradient(90deg, var(--eth-yellow), var(--eth-green));
   transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
+@media (max-width: 768px) {
+  .practice-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  .practice-header-left, .practice-header-right {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .practice-header-right {
+    justify-content: flex-start;
+    gap: 10px;
+  }
+  .practice-header .badge {
+    margin-bottom: 0;
+  }
+  .mobile-full-width {
+    width: 100%;
+    text-align: center;
+  }
+  .mobile-full-width .btn {
+    width: 100%;
+    display: block;
+    margin-top: 10px;
+  }
+  .mobile-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .practice-card-responsive {
+    padding: 20px 15px !important;
+  }
+}

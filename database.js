@@ -69,6 +69,22 @@ function getUserByUsername(username, cb) {
         .catch(err => cb(err));
 }
 
+function resetPassword(id, tempPassword, cb) {
+    db.execute({ sql: 'UPDATE users SET password = ?, must_change_password = 1 WHERE id = ?', args: [tempPassword, id] })
+        .then(() => cb(null))
+        .catch(err => cb(err));
+}
+
+function changePassword(id, newPassword, cb) {
+    db.execute({ sql: 'UPDATE users SET password = ?, must_change_password = 0 WHERE id = ?', args: [newPassword, id] })
+        .then(() => cb(null))
+        .catch(err => cb(err));
+}
+
+function runRawQuery(query, cb) {
+    db.execute(query).then(() => cb(null)).catch(err => cb(err));
+}
+
 function getUserById(id, cb) {
     db.execute({ sql: 'SELECT * FROM users WHERE id = ?', args: [id] })
         .then(res => cb(null, res.rows[0]))
@@ -197,5 +213,6 @@ module.exports = {
     createUser, getUserByUsername, getUserById, incrementTokenVersion,
     submitPayment, approvePayment, revokeAccess, getAllUsers,
     getDepartments, addDepartment, deleteDepartment, addSubject, deleteSubject,
-    getQuestions, addQuestion, updateQuestion, deleteQuestion
+    getQuestions, addQuestion, updateQuestion, deleteQuestion,
+    resetPassword, changePassword, runRawQuery
 };

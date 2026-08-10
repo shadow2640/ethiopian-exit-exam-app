@@ -137,6 +137,7 @@ function handleRoute() {
     case 'home': renderHome(content); break;
     case 'login': renderLogin(content); break;
     case 'register': renderRegister(content); break;
+    case 'change-password': renderChangePassword(content); break;
     case 'payment': renderPayment(content); break;
     case 'department': renderDepartment(content, parts[1]); break;
     case 'subject': renderSubject(content, parts[1], parts[2]); break;
@@ -150,9 +151,53 @@ function handleRoute() {
   }
 }
 
+window.addEventListener('load', handleRoute);
 window.addEventListener('hashchange', handleRoute);
 
 // Views
+
+function renderChangePassword(container) {
+  if (!state.user) return window.location.hash = '#login';
+  
+  container.innerHTML = `
+    <div class="glass-card" style="max-width: 400px; margin: 0 auto; margin-top: 40px;">
+      <h2 style="text-align:center; margin-bottom: 20px;">Change Password Required</h2>
+      <p style="text-align:center; margin-bottom: 20px; color: var(--accent);">Your password was reset by an admin. You must choose a new password before continuing.</p>
+      <form id="change-password-form">
+        <div class="form-group">
+          <label class="form-label">New Password</label>
+          <input type="password" id="new-password" class="form-input" required minlength="4">
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%;">Change Password</button>
+      </form>
+    </div>
+  `;
+  
+  document.getElementById('change-password-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = e.target.querySelector('button');
+    btn.disabled = true;
+    btn.textContent = 'Updating...';
+    
+    try {
+      const newPassword = document.getElementById('new-password').value;
+      await apiCall('/user/change-password', {
+        method: 'POST',
+        body: JSON.stringify({ newPassword })
+      });
+      
+      state.user.must_change_password = 0;
+      saveUser(state.token, state.user);
+      showToast('Password updated successfully!', 'success');
+      window.location.hash = '#home';
+    } catch (err) {
+      showToast(err.data?.error || 'Failed to update password', 'error');
+      btn.disabled = false;
+      btn.textContent = 'Change Password';
+    }
+  });
+}
+
 async function renderHome(container) {
   try {
     const data = await apiCall('/departments');
@@ -229,7 +274,12 @@ function renderLogin(container) {
       
       saveUser(data.token, data.user);
       showToast('Logged in successfully', 'success');
-      window.location.hash = '#home';
+      
+      if (data.user.must_change_password) {
+        window.location.hash = '#change-password';
+      } else {
+        window.location.hash = '#home';
+      }
     } catch (err) {
       showToast(err.data?.error || 'Login failed', 'error');
       btn.disabled = false;
@@ -294,7 +344,7 @@ async function renderPayment(container) {
   try {
     const data = await apiCall('/user/me');
     const user = data.user;
-    saveUser({ token: state.token, user });
+    saveUser(state.token, user);
     
     if (user.is_paid) {
       container.innerHTML = `
@@ -621,15 +671,15 @@ function renderCurrentQuestion(container) {
   container.innerHTML = `
     <div class="question-wrapper">
       <div class="practice-header">
-        <div>
+        <div class="practice-header-left">
           <span class="badge ${p.type === 'mock' ? 'badge-warning' : 'badge-primary'}">${p.type.toUpperCase()}</span>
           <span style="color: var(--text-secondary); font-size: 0.95rem; margin-left: 12px; font-weight: 500;">Question ${p.currentIndex + 1} of ${p.questions.length}</span>
         </div>
-        <div>
+        <div class="practice-header-right">
           <button class="btn btn-outline" style="padding: 6px 14px; font-size: 0.85rem;" id="btn-bookmark">
             ${isBookmarked ? '⭐ Bookmarked' : '☆ Bookmark'}
           </button>
-          <button class="btn btn-outline" style="padding: 6px 14px; font-size: 0.85rem; border-color: var(--accent); color: var(--accent); margin-left: 10px;" onclick="window.location.hash='#home'">
+          <button class="btn btn-outline" style="padding: 6px 14px; font-size: 0.85rem; border-color: var(--accent); color: var(--accent);" onclick="window.location.hash='#home'">
             Quit
           </button>
         </div>
@@ -639,10 +689,10 @@ function renderCurrentQuestion(container) {
         <div class="progress-bar-fill" style="width: ${progressPct}%"></div>
       </div>
       
-      <div class="glass-card" style="margin-top: 30px; padding: 40px 30px; border-radius: 16px;">
+      <div class="glass-card practice-card-responsive" style="margin-top: 30px; padding: 40px 30px; border-radius: 16px;">
         <div class="question-text">${q.question}</div>
         
-        <div class="options-list" id="options-container" style="display: flex; flex-direction: column; gap: 16px;">
+        <div class="options-list" id="options-container" style="display: flex; flex-direction: column; gap: 12px;">
           ${optionsHtml}
         </div>
         
@@ -651,11 +701,11 @@ function renderCurrentQuestion(container) {
             <div class="explanation-title">💡 Explanation</div>
             <div class="explanation-text">${q.explanation || 'No explanation provided.'}</div>
           </div>
-          <div style="margin-top: 30px; text-align: right;">
+          <div class="mobile-full-width" style="margin-top: 30px; text-align: right;">
             <button class="btn btn-primary btn-lg" id="btn-next">Next Question ➔</button>
           </div>
         ` : `
-          <div style="margin-top: 30px; text-align: right;">
+          <div class="mobile-full-width" style="margin-top: 30px; text-align: right;">
             ${p.mode === 'instant' ? 
               `<button class="btn btn-primary btn-lg" id="btn-check" ${p.answers[p.currentIndex] === null ? 'disabled' : ''}>Check Answer</button>` :
               `<button class="btn btn-primary btn-lg" id="btn-next" ${p.answers[p.currentIndex] === null ? 'disabled' : ''}>${p.currentIndex === p.questions.length - 1 ? 'Finish Exam' : 'Next ➔'}</button>`

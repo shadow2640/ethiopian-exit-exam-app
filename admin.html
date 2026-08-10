@@ -710,6 +710,7 @@
                     <td>${formatDate(u.created_at)}</td>
                     <td>
                         <button class="btn btn-success btn-sm" onclick="approvePayment('${u.id}')">Approve</button>
+                        <button class="btn btn-warning btn-sm" onclick="resetPassword('${u.id}')" style="margin-left: 5px;">Reset Password</button>
                     </td>
                 </tr>
             `).join('');
@@ -721,6 +722,7 @@
                     <td>${u.transaction_id || 'N/A'}</td>
                     <td>
                         <button class="btn btn-danger btn-sm" onclick="revokeUser('${u.id}')">Revoke Access</button>
+                        <button class="btn btn-warning btn-sm" onclick="resetPassword('${u.id}')" style="margin-left: 5px;">Reset Password</button>
                     </td>
                 </tr>
             `).join('');
@@ -730,6 +732,9 @@
                     <td>${u.id}</td>
                     <td>${u.username}</td>
                     <td>${formatDate(u.created_at)}</td>
+                    <td>
+                        <button class="btn btn-warning btn-sm" onclick="resetPassword('${u.id}')">Reset Password</button>
+                    </td>
                 </tr>
             `).join('');
         }
@@ -765,6 +770,21 @@
                 } else throw new Error();
             } catch {
                 showNotification("Error revoking access", true);
+            }
+        }
+
+        async function resetPassword(userId) {
+            if (!confirm('Are you sure you want to reset the password for this user?')) return;
+            try {
+                const res = await fetch(`${API_BASE}/reset-password/${userId}`, { method: 'POST' });
+                if (res.ok) {
+                    const data = await res.json();
+                    alert(`Password reset successfully!\n\nThe new temporary password is: ${data.tempPassword}\n\nPlease give this to the student. They will be forced to change it upon login.`);
+                } else {
+                    showNotification("Failed to reset password.");
+                }
+            } catch (e) {
+                console.error(e);
             }
         }
 

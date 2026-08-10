@@ -38,7 +38,12 @@ function authenticate(req, res, next) {
 app.post('/api/auth/register', (req, res) => {
     const { username, password } = req.body;
     db.createUser(username, password, (err, user) => {
-        if (err) return res.status(400).json({ error: err.message });
+        if (err) {
+            if (err.message && err.message.includes('UNIQUE constraint failed')) {
+                return res.status(400).json({ error: 'Username already exists. Please choose another one.' });
+            }
+            return res.status(400).json({ error: err.message });
+        }
         res.json({ token: generateToken(user), user: { id: user.id, username: user.username, is_paid: user.is_paid } });
     });
 });
@@ -51,7 +56,7 @@ app.post('/api/auth/login', (req, res) => {
         db.incrementTokenVersion(user.id, (err, newVersion) => {
             if (err) return res.status(500).json({ error: 'Server error' });
             user.token_version = newVersion;
-            res.json({ token: generateToken(user), user: { id: user.id, username: user.username, is_paid: user.is_paid } });
+            res.json({ token: generateToken(user), user: { id: user.id, username: user.username, is_paid: user.is_paid, must_change_password: user.must_change_password } });
         });
     });
 });
@@ -64,6 +69,16 @@ app.post('/api/user/payment', authenticate, (req, res) => {
     const { transactionId, fullName } = req.body;
     if (!transactionId || !fullName) return res.status(400).json({ error: 'Full name and Transaction ID are required' });
     db.submitPayment(req.user.id, transactionId, fullName, (err) => {
+        if (err) return res.status(500).json({ error: 'Server error' });
+        res.json({ success: true });
+    });
+});
+
+app.post('/api/user/change-password', authenticate, (req, res) => {
+    const { newPassword } = req.body;
+    if (!newPassword || newPassword.length < 4) return res.status(400).json({ error: 'Password must be at least 4 characters long' });
+    
+    db.changePassword(req.user.id, newPassword, (err) => {
         if (err) return res.status(500).json({ error: 'Server error' });
         res.json({ success: true });
     });
@@ -99,6 +114,14 @@ app.get('/api/admin/users', (req, res) => {
     db.getAllUsers((err, users) => {
         if (err) return res.status(500).json({ error: 'Server error' });
         res.json({ users });
+    });
+});
+
+app.post('/api/admin/reset-password/:id', (req, res) => {
+    const tempPassword = 'reset' + Math.floor(1000 + Math.random() * 9000);
+    db.resetPassword(req.params.id, tempPassword, (err) => {
+        if (err) return res.status(500).json({ error: 'Server error' });
+        res.json({ tempPassword });
     });
 });
 

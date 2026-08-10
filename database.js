@@ -158,10 +158,17 @@ function getQuestions(filters, cb) {
     
     db.execute({ sql: query, args })
         .then(res => {
-            const parsed = res.rows.map(q => ({
-                ...q,
-                options: JSON.parse(q.options)
-            }));
+            const parsed = res.rows.map(q => {
+                let opts = q.options;
+                try { opts = JSON.parse(opts); } catch(e){}
+                if (typeof opts === 'string') {
+                    try { opts = JSON.parse(opts); } catch(e){}
+                }
+                return {
+                    ...q,
+                    options: opts
+                };
+            });
             cb(null, parsed);
         })
         .catch(err => cb(err));

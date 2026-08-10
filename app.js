@@ -294,6 +294,7 @@ async function renderPayment(container) {
   try {
     const data = await apiCall('/user/me');
     const user = data.user;
+    saveUser({ token: state.token, user });
     
     if (user.is_paid) {
       container.innerHTML = `

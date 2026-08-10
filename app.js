@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:3000/api';
+const API_URL = '/api';
 
 const state = {
   token: localStorage.getItem('exitprep_token') || null,
@@ -160,9 +160,9 @@ async function renderHome(container) {
     
     let html = `
       <section class="hero">
-        <div class="hero-badge">🚀 The #1 Platform for Ethiopian Exit Exam Preparation</div>
-        <h1 class="hero-title">Master Your Exit Exam with Confidence</h1>
-        <p class="hero-subtitle">Practice with thousands of past questions, mock exams, and instant feedback tailored for your department.</p>
+        <div class="hero-badge">🌟 The #1 Platform for Ethiopian Exit Exam Preparation</div>
+        <h1 class="hero-title">Exit Prep Ethiopia is tailored to make students better at the Ethiopian Exit Exam</h1>
+        <p class="hero-subtitle">Practice with thousands of past questions and mock exams, designed to help you pass with confidence — all at a great value.</p>
         ${!state.user ? `<a href="#register" class="btn btn-primary btn-lg">Get Started Now</a>` : ''}
       </section>
       

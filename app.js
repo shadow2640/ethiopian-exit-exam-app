@@ -444,7 +444,7 @@ function renderSubject(container, deptId, subjectId) {
     </div>
     
     <div class="grid grid-3">
-      <div class="category-card ${!isPaid ? 'locked' : ''}" onclick="!${!isPaid} ? window.location.hash='#mode/${deptId}/${subjectId}/mock' : window.location.hash='#payment'">
+      <div class="category-card ${!isPaid ? 'locked' : ''}" onclick="window.location.hash = ${isPaid ? `'#mode/${deptId}/${subjectId}/mock'` : `'#payment'`}">
         ${!isPaid ? '<div class="locked-badge">🔒 Premium Only</div>' : ''}
         <div class="mode-icon">📝</div>
         <h3>Mock Exam</h3>

@@ -1,4 +1,4 @@
-const db = require('./database');
+﻿const db = require('./database');
 const crypto = require('crypto');
 
 const depts = [
@@ -60,49 +60,32 @@ const generateQuestions = () => {
 
 const questions = generateQuestions();
 
-function seedDepartments(cb) {
-    let count = 0;
-    for (const d of depts) {
-        db.addDepartment(d, (err) => {
-            if (err) console.error('Error adding dept:', err);
-            count++;
-            if (count === depts.length) cb();
-        });
-    }
-}
+const util = require('util');
+const addDept = util.promisify(db.addDepartment);
+const addSubj = util.promisify(db.addSubject);
+const addQues = util.promisify(db.addQuestion);
 
-function seedSubjects(cb) {
-    let count = 0;
-    for (const s of subjects) {
-        db.addSubject(s.departmentId, s, (err) => {
-            if (err) console.error('Error adding subject:', err);
-            count++;
-            if (count === subjects.length) cb();
-        });
-    }
-}
-
-function seedQuestions(cb) {
-    let count = 0;
-    for (const q of questions) {
-        db.addQuestion(q, (err) => {
-            if (err) console.error('Error adding question:', err);
-            count++;
-            if (count === questions.length) cb();
-        });
-    }
-}
-
-setTimeout(() => {
+async function seed() {
+    console.log('Waiting 2 seconds for DB init...');
+    await new Promise(r => setTimeout(r, 2000));
+    
     console.log('Seeding departments...');
-    seedDepartments(() => {
-        console.log('Seeding subjects...');
-        seedSubjects(() => {
-            console.log('Seeding questions...');
-            seedQuestions(() => {
-                console.log('Seeding complete!');
-                process.exit(0);
-            });
-        });
-    });
-}, 1000);
+    for (const d of depts) {
+        await addDept(d).catch(e => console.log('Skip:', e.message));
+    }
+    
+    console.log('Seeding subjects...');
+    for (const s of subjects) {
+        await addSubj(s.departmentId, s).catch(e => console.log('Skip:', e.message));
+    }
+    
+    console.log('Seeding questions...');
+    for (const q of questions) {
+        await addQues(q).catch(e => console.log('Skip:', e.message));
+    }
+    
+    console.log('Seeding complete! You can start the server now.');
+    process.exit(0);
+}
+
+seed();

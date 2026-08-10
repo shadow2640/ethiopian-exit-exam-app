@@ -552,6 +552,10 @@ async function renderPractice(container, deptId, subjectId, type, yearStr, mode)
     const data = await apiCall(url);
     const questions = data.questions || [];
     
+    if (type === 'mock') {
+      questions.sort(() => Math.random() - 0.5);
+    }
+    
     if (questions.length === 0) {
       container.innerHTML = `<div class="empty-state"><h2>No questions found</h2><button class="btn btn-primary" onclick="window.history.back()">Back</button></div>`;
       return;
@@ -616,41 +620,49 @@ function renderCurrentQuestion(container) {
   
   container.innerHTML = `
     <div class="question-wrapper">
-      <div class="question-header">
-        <div class="question-progress">
-          <span class="question-counter">Question ${p.currentIndex + 1} of ${p.questions.length}</span>
-          <div class="progress-bar"><div class="progress-fill" style="width: ${progressPct}%"></div></div>
+      <div class="practice-header">
+        <div>
+          <span class="badge ${p.type === 'mock' ? 'badge-warning' : 'badge-primary'}">${p.type.toUpperCase()}</span>
+          <span style="color: var(--text-secondary); font-size: 0.95rem; margin-left: 12px; font-weight: 500;">Question ${p.currentIndex + 1} of ${p.questions.length}</span>
         </div>
         <div>
-          <button class="bookmark-btn ${isBookmarked ? 'active' : ''}" id="btn-bookmark" title="Bookmark">🔖</button>
-          <button class="btn btn-danger btn-sm" onclick="window.location.hash='#home'">Quit</button>
+          <button class="btn btn-outline" style="padding: 6px 14px; font-size: 0.85rem;" id="btn-bookmark">
+            ${isBookmarked ? '⭐ Bookmarked' : '☆ Bookmark'}
+          </button>
+          <button class="btn btn-outline" style="padding: 6px 14px; font-size: 0.85rem; border-color: var(--accent); color: var(--accent); margin-left: 10px;" onclick="window.location.hash='#home'">
+            Quit
+          </button>
         </div>
       </div>
       
-      <div class="question-card">
+      <div class="progress-bar-container">
+        <div class="progress-bar-fill" style="width: ${progressPct}%"></div>
+      </div>
+      
+      <div class="glass-card" style="margin-top: 30px; padding: 40px 30px; border-radius: 16px;">
         <div class="question-text">${q.question}</div>
+        
+        <div class="options-list" id="options-container" style="display: flex; flex-direction: column; gap: 16px;">
+          ${optionsHtml}
+        </div>
+        
+        ${(p.mode === 'instant' && p.isChecking) ? `
+          <div class="explanation-box">
+            <div class="explanation-title">💡 Explanation</div>
+            <div class="explanation-text">${q.explanation || 'No explanation provided.'}</div>
+          </div>
+          <div style="margin-top: 30px; text-align: right;">
+            <button class="btn btn-primary btn-lg" id="btn-next">Next Question ➔</button>
+          </div>
+        ` : `
+          <div style="margin-top: 30px; text-align: right;">
+            ${p.mode === 'instant' ? 
+              `<button class="btn btn-primary btn-lg" id="btn-check" ${p.answers[p.currentIndex] === null ? 'disabled' : ''}>Check Answer</button>` :
+              `<button class="btn btn-primary btn-lg" id="btn-next" ${p.answers[p.currentIndex] === null ? 'disabled' : ''}>${p.currentIndex === p.questions.length - 1 ? 'Finish Exam' : 'Next ➔'}</button>`
+            }
+          </div>
+        `}
       </div>
-      
-      <div class="options-list" id="options-container">
-        ${optionsHtml}
-      </div>
-      
-      ${(p.mode === 'instant' && p.isChecking) ? `
-        <div class="explanation-box">
-          <div class="explanation-title">💡 Explanation</div>
-          <div class="explanation-text">${q.explanation || 'No explanation provided.'}</div>
-        </div>
-        <div style="margin-top: 20px; text-align: right;">
-          <button class="btn btn-primary btn-lg" id="btn-next">Next Question ➔</button>
-        </div>
-      ` : `
-        <div style="margin-top: 20px; text-align: right;">
-          ${p.mode === 'instant' ? 
-            `<button class="btn btn-primary btn-lg" id="btn-check" ${p.answers[p.currentIndex] === null ? 'disabled' : ''}>Check Answer</button>` :
-            `<button class="btn btn-primary btn-lg" id="btn-next" ${p.answers[p.currentIndex] === null ? 'disabled' : ''}>${p.currentIndex === p.questions.length - 1 ? 'Finish' : 'Next ➔'}</button>`
-          }
-        </div>
-      `}
     </div>
   `;
   
@@ -724,19 +736,27 @@ function renderResults(container) {
   else if (pct >= 70) { grade = 'Good'; color = 'var(--eth-green)'; }
   else if (pct >= 50) { grade = 'Fair'; color = 'var(--secondary)'; }
   
-  // Save progress
-  const prog = getProgress();
-  if (!prog[p.subjectId]) prog[p.subjectId] = { totalAttempted: 0, totalCorrect: 0, examHistory: [] };
-  prog[p.subjectId].totalAttempted += p.questions.length;
-  prog[p.subjectId].totalCorrect += p.score;
-  prog[p.subjectId].examHistory.push({
-    date: new Date().toISOString(),
-    score: p.score,
-    total: p.questions.length,
-    mode: p.mode,
-    type: p.type
-  });
-  saveProgress(prog);
+  window.saveCurrentProgress = function() {
+    const prog = getProgress();
+    if (!prog[p.subjectId]) prog[p.subjectId] = { totalAttempted: 0, totalCorrect: 0, examHistory: [] };
+    prog[p.subjectId].totalAttempted += p.questions.length;
+    prog[p.subjectId].totalCorrect += p.score;
+    prog[p.subjectId].examHistory.push({
+      date: new Date().toISOString(),
+      score: p.score,
+      total: p.questions.length,
+      mode: p.mode,
+      type: p.type
+    });
+    saveProgress(prog);
+    showToast('Progress saved successfully!', 'success');
+    window.location.hash = '#home';
+  };
+  
+  window.discardCurrentProgress = function() {
+    showToast('Progress discarded.', 'info');
+    window.location.hash = '#home';
+  };
   
   let html = `
     <div class="results-wrapper">
@@ -759,8 +779,8 @@ function renderResults(container) {
       ` : ''}
       
       <div class="btn-group" style="justify-content: center; margin-bottom: 40px;">
-        <button class="btn btn-primary" onclick="window.location.hash='#subject/${p.deptId}/${p.subjectId}'">Try Another</button>
-        <button class="btn btn-outline" onclick="window.location.hash='#home'">Go Home</button>
+        <button class="btn btn-primary" onclick="window.saveCurrentProgress()">Save Progress</button>
+        <button class="btn btn-outline" onclick="window.discardCurrentProgress()">Discard & Exit</button>
       </div>
     </div>
     

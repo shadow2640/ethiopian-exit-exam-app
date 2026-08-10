@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ExitPrep Ethiopia</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Navbar -->
+    <nav class="navbar" id="navbar">
+      <div class="nav-brand" onclick="window.location.hash='#home'">
+        <div class="nav-brand-icon">🇪🇹</div>
+        <div class="nav-brand-text">ExitPrep Ethiopia</div>
+      </div>
+      <ul class="nav-links" id="nav-links">
+        <li><a class="nav-link" href="#home">🏠 Home</a></li>
+        <li id="nav-progress" class="hidden"><a class="nav-link" href="#progress">📊 Progress</a></li>
+        <li id="nav-bookmarks" class="hidden"><a class="nav-link" href="#bookmarks">🔖 Bookmarks</a></li>
+        <li id="nav-login"><a class="nav-link" href="#login">🔐 Login</a></li>
+        <li id="nav-register"><a class="nav-link" href="#register">📝 Sign Up</a></li>
+        <li id="nav-logout" class="hidden"><a class="nav-link" href="#" onclick="event.preventDefault()">🚪 Logout</a></li>
+      </ul>
+      <button class="mobile-menu-btn" id="mobile-menu-btn">☰</button>
+    </nav>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Main Content -->
+    <main class="main-content" id="main-content">
+      <!-- Dynamic content injected here -->
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <p>&copy; 2026 ExitPrep Ethiopia. All rights reserved.</p>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

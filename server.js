@@ -44,7 +44,7 @@ app.post('/api/auth/register', (req, res) => {
             }
             return res.status(400).json({ error: err.message });
         }
-        res.json({ token: generateToken(user), user: { id: user.id, username: user.username, is_paid: user.is_paid } });
+        res.json({ token: generateToken(user), user: { id: user.id, username: user.username, is_paid: user.is_paid, must_change_password: user.must_change_password, free_questions_used: user.free_questions_used } });
     });
 });
 
@@ -56,13 +56,13 @@ app.post('/api/auth/login', (req, res) => {
         db.incrementTokenVersion(user.id, (err, newVersion) => {
             if (err) return res.status(500).json({ error: 'Server error' });
             user.token_version = newVersion;
-            res.json({ token: generateToken(user), user: { id: user.id, username: user.username, is_paid: user.is_paid, must_change_password: user.must_change_password } });
+            res.json({ token: generateToken(user), user: { id: user.id, username: user.username, is_paid: user.is_paid, must_change_password: user.must_change_password, free_questions_used: user.free_questions_used } });
         });
     });
 });
 
 app.get('/api/user/me', authenticate, (req, res) => {
-    res.json({ user: { id: req.user.id, username: req.user.username, is_paid: req.user.is_paid, transaction_id: req.user.transaction_id, full_name: req.user.full_name } });
+    res.json({ user: { id: req.user.id, username: req.user.username, is_paid: req.user.is_paid, transaction_id: req.user.transaction_id, token_version: req.user.token_version, must_change_password: req.user.must_change_password, free_questions_used: req.user.free_questions_used } });
 });
 
 app.post('/api/user/payment', authenticate, (req, res) => {
@@ -84,6 +84,16 @@ app.post('/api/user/change-password', authenticate, (req, res) => {
     });
 });
 
+app.post('/api/user/track-usage', authenticate, (req, res) => {
+    const { count } = req.body;
+    if (!count || count <= 0) return res.json({ success: true });
+    
+    db.incrementFreeQuestions(req.user.id, count, (err) => {
+        if (err) return res.status(500).json({ error: 'Server error' });
+        res.json({ success: true });
+    });
+});
+
 // Student Routes
 app.get('/api/departments', (req, res) => {
     db.getDepartments((err, deps) => {
@@ -98,11 +108,12 @@ app.get('/api/questions', authenticate, (req, res) => {
         if (err) return res.status(500).json({ error: 'Server error' });
         
         if (!req.user.is_paid) {
-            if (type === 'mock') {
-                return res.status(403).json({ error: 'Upgrade to paid plan for mock exams' });
-            } else {
-                return res.json({ questions: questions.slice(0, 10) });
+            const used = req.user.free_questions_used || 0;
+            const remaining = Math.max(0, 10 - used);
+            if (remaining === 0) {
+                return res.status(403).json({ error: 'Free trial limit reached' });
             }
+            return res.json({ questions: questions.slice(0, remaining) });
         }
         
         res.json({ questions });

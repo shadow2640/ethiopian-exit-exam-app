@@ -199,20 +199,50 @@ function renderChangePassword(container) {
 }
 
 async function renderHome(container) {
+  if (!state.user) {
+    // Logged out Educational Landing Page
+    container.innerHTML = `
+      <section class="hero" style="text-align: center; padding: 60px 20px;">
+        <div class="hero-badge">🎓 The #1 Platform for Ethiopian Exit Exam Preparation</div>
+        <h1 class="hero-title" style="margin-bottom: 20px;">Master Your Exit Exam with Confidence</h1>
+        <p class="hero-subtitle" style="max-width: 700px; margin: 0 auto 30px;">After 4 to 7 years of intense university study, passing the Exit Exam is your final hurdle. Strategy, careful studying, and mastering your timing are key. Exit Prep Ethiopia provides the exact questions and answers you need.</p>
+        <div>
+          <a href="#login" class="btn btn-outline" style="margin-right: 15px;">Login</a>
+          <a href="#register" class="btn btn-primary">Sign Up for Free Trial</a>
+        </div>
+      </section>
+      
+      <section style="padding: 40px 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; max-width: 1200px; margin: 0 auto;">
+        <div class="glass-card" style="padding: 30px;">
+          <h3 style="color: var(--eth-green); margin-bottom: 15px;">📚 Study Smart, Not Just Hard</h3>
+          <p style="color: var(--text-secondary); line-height: 1.6;">Reviewing your entire degree can be overwhelming. Focus your energy by practicing with real previous exam questions and highly accurate mock exams designed to identify your weak spots.</p>
+        </div>
+        <div class="glass-card" style="padding: 30px;">
+          <h3 style="color: var(--eth-yellow); margin-bottom: 15px;">⏱️ Master Your Timing</h3>
+          <p style="color: var(--text-secondary); line-height: 1.6;">Many students fail not because they lack knowledge, but because they run out of time. Our platform simulates the real exam environment to help you pace yourself perfectly.</p>
+        </div>
+        <div class="glass-card" style="padding: 30px;">
+          <h3 style="color: var(--primary); margin-bottom: 15px;">✅ Instant Feedback & Explanations</h3>
+          <p style="color: var(--text-secondary); line-height: 1.6;">Don't just guess. Learn the 'why' behind every correct answer with our detailed explanations, ensuring you never make the same mistake twice on exam day.</p>
+        </div>
+      </section>
+    `;
+    return;
+  }
+
+  // Logged in Departments Grid
   try {
     const data = await apiCall('/departments');
     state.departments = data.departments;
     
     let html = `
       <section class="hero">
-        <div class="hero-badge">🌟 The #1 Platform for Ethiopian Exit Exam Preparation</div>
-        <h1 class="hero-title">Exit Prep Ethiopia is tailored to make students better at the Ethiopian Exit Exam</h1>
-        <p class="hero-subtitle">Practice with thousands of past questions and mock exams, designed to help you pass with confidence — all at a great value.</p>
-        ${!state.user ? `<a href="#register" class="btn btn-primary btn-lg">Get Started Now</a>` : ''}
+        <h1 class="hero-title">Welcome back, ${state.user.username}!</h1>
+        <p class="hero-subtitle">Select your department below to continue your practice session.</p>
       </section>
       
       <div class="section-header">
-        <h2 class="section-title">Select Your Department</h2>
+        <h2 class="section-title">Your Departments</h2>
         <p class="section-subtitle">Choose your department to find relevant practice questions</p>
       </div>
       <div class="grid grid-3">
@@ -679,7 +709,7 @@ function renderCurrentQuestion(container) {
           <button class="btn btn-outline" style="padding: 6px 14px; font-size: 0.85rem;" id="btn-bookmark">
             ${isBookmarked ? '⭐ Bookmarked' : '☆ Bookmark'}
           </button>
-          <button class="btn btn-outline" style="padding: 6px 14px; font-size: 0.85rem; border-color: var(--accent); color: var(--accent);" onclick="window.location.hash='#home'">
+          <button class="btn btn-outline" style="padding: 6px 14px; font-size: 0.85rem; border-color: var(--accent); color: var(--accent);" onclick="window.quitPractice()">
             Quit
           </button>
         </div>
@@ -786,7 +816,7 @@ function renderResults(container) {
   else if (pct >= 70) { grade = 'Good'; color = 'var(--eth-green)'; }
   else if (pct >= 50) { grade = 'Fair'; color = 'var(--secondary)'; }
   
-  window.saveCurrentProgress = function() {
+  window.saveCurrentProgress = async function() {
     const prog = getProgress();
     if (!prog[p.subjectId]) prog[p.subjectId] = { totalAttempted: 0, totalCorrect: 0, examHistory: [] };
     prog[p.subjectId].totalAttempted += p.questions.length;
@@ -799,12 +829,44 @@ function renderResults(container) {
       type: p.type
     });
     saveProgress(prog);
+    
+    // Track usage for free trial
+    if (!state.user.is_paid) {
+      await apiCall('/user/track-usage', {
+        method: 'POST',
+        body: JSON.stringify({ count: p.questions.length })
+      }).catch(console.error);
+      state.user.free_questions_used = (state.user.free_questions_used || 0) + p.questions.length;
+      saveUser(state.token, state.user);
+    }
+    
     showToast('Progress saved successfully!', 'success');
     window.location.hash = '#home';
   };
   
-  window.discardCurrentProgress = function() {
+  window.discardCurrentProgress = async function() {
+    // Still track usage even if discarded to prevent abuse
+    if (!state.user.is_paid) {
+      await apiCall('/user/track-usage', {
+        method: 'POST',
+        body: JSON.stringify({ count: p.questions.length })
+      }).catch(console.error);
+      state.user.free_questions_used = (state.user.free_questions_used || 0) + p.questions.length;
+      saveUser(state.token, state.user);
+    }
     showToast('Progress discarded.', 'info');
+    window.location.hash = '#home';
+  };
+  
+  window.quitPractice = async function() {
+    if (!state.user.is_paid && state.practice.currentIndex > 0) {
+      await apiCall('/user/track-usage', {
+        method: 'POST',
+        body: JSON.stringify({ count: state.practice.currentIndex })
+      }).catch(console.error);
+      state.user.free_questions_used = (state.user.free_questions_used || 0) + state.practice.currentIndex;
+      saveUser(state.token, state.user);
+    }
     window.location.hash = '#home';
   };
   

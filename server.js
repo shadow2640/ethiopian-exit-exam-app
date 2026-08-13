@@ -8,6 +8,7 @@ app.use(express.json());
 app.use(express.static(__dirname));
 
 const JWT_SECRET = 'your-super-secret-jwt-key';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'ExitPrepAdmin2026!';
 
 function generateToken(user) {
     return jwt.sign({ id: user.id, username: user.username, token_version: user.token_version }, JWT_SECRET);
@@ -120,7 +121,18 @@ app.get('/api/questions', authenticate, (req, res) => {
     });
 });
 
-// Admin Routes (no auth check implemented per prompt, but would typically have one)
+// Admin Authentication Middleware
+function authenticateAdmin(req, res, next) {
+    const providedPassword = req.headers['x-admin-password'];
+    if (!providedPassword || providedPassword !== ADMIN_PASSWORD) {
+        return res.status(401).json({ error: 'Unauthorized: Invalid Admin Password' });
+    }
+    next();
+}
+
+app.use('/api/admin', authenticateAdmin);
+
+// Admin Routes
 app.get('/api/admin/users', (req, res) => {
     db.getAllUsers((err, users) => {
         if (err) return res.status(500).json({ error: 'Server error' });

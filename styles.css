@@ -2408,12 +2408,39 @@ a:hover {
     padding: 24px 18px;
   }
   
-  .exam-actions-footer {
-    flex-direction: column;
+.exam-question-heading {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.5;
+  margin-bottom: 28px;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+.exam-option-item {
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+@media (max-width: 480px) {
+  .exam-question-heading {
+    font-size: 1.1rem;
+    margin-bottom: 20px;
   }
   
-  .exam-actions-footer .btn {
-    width: 100%;
+  .exam-timer-pill {
+    font-size: 0.95rem;
+    padding: 6px 12px;
+  }
+  
+  .exam-q-meta-bar {
+    gap: 8px;
+  }
+  
+  .exam-page-container {
+    padding: 10px 10px 30px;
   }
 }
+
 

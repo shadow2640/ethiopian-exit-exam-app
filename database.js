@@ -92,7 +92,7 @@ function incrementFreeQuestions(id, count, cb) {
 }
 
 function updateUserRole(id, role, cb) {
-    db.execute({ sql: 'UPDATE users SET role = ? WHERE id = ?', args: [role, id] })
+    db.execute({ sql: 'UPDATE users SET role = ?, token_version = token_version + 1 WHERE id = ?', args: [role, id] })
         .then(() => cb(null))
         .catch(err => cb(err));
 }

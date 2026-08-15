@@ -747,8 +747,55 @@ function renderModeSelection(container, deptId, subjectId, type, year) {
   `;
 }
 
+function formatExamTime(totalSecs) {
+  if (totalSecs < 0) totalSecs = 0;
+  const hrs = Math.floor(totalSecs / 3600);
+  const mins = Math.floor((totalSecs % 3600) / 60);
+  const secs = totalSecs % 60;
+  if (hrs > 0) {
+    return `${hrs}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  }
+  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+
+window.jumpToQuestion = function(idx) {
+  const p = state.practice;
+  if (!p || idx < 0 || idx >= p.questions.length) return;
+  p.isChecking = false;
+  p.currentIndex = idx;
+  renderCurrentQuestion(document.getElementById('main-content'));
+};
+
+window.finishAndSubmitExam = function() {
+  if (state.practice && state.practice.timerInterval) {
+    clearInterval(state.practice.timerInterval);
+  }
+  window.location.hash = '#results';
+};
+
+window.submitTestConfirm = function() {
+  const p = state.practice;
+  if (!p) return;
+  const answered = p.answers.filter(a => a !== null).length;
+  const unanswered = p.questions.length - answered;
+  
+  if (unanswered > 0) {
+    if (!confirm(`You have answered ${answered} of ${p.questions.length} questions (${unanswered} unanswered).\n\nAre you sure you want to submit your exam now?`)) {
+      return;
+    }
+  }
+  window.finishAndSubmitExam();
+};
+
 async function renderPractice(container, deptId, subjectId, type, yearStr, mode) {
   try {
+    if (!state.departments || state.departments.length === 0) {
+      try {
+        const dData = await apiCall('/departments');
+        state.departments = dData.departments || [];
+      } catch (e) {}
+    }
+
     let url = `/questions?subjectId=${subjectId}&type=${type}`;
     if (yearStr && yearStr !== 'none') {
       url += `&year=${yearStr}`;
@@ -765,6 +812,12 @@ async function renderPractice(container, deptId, subjectId, type, yearStr, mode)
       container.innerHTML = `<div class="empty-state"><h2>No questions found</h2><button class="btn btn-primary" onclick="window.history.back()">Back</button></div>`;
       return;
     }
+
+    if (state.practice && state.practice.timerInterval) {
+      clearInterval(state.practice.timerInterval);
+    }
+
+    const totalSeconds = Math.max(600, questions.length * 90);
     
     state.practice = {
       questions,
@@ -772,13 +825,36 @@ async function renderPractice(container, deptId, subjectId, type, yearStr, mode)
       score: 0,
       mode,
       answers: new Array(questions.length).fill(null),
-      hitPaywall: (questions.length === 10 && !state.user?.is_paid),
+      hitPaywall: (questions.length === 10 && !state.user?.is_paid && state.user?.role === 'student'),
       startTime: Date.now(),
+      totalSeconds,
+      secondsRemaining: totalSeconds,
       type,
       subjectId,
       deptId,
-      isChecking: false // for instant mode state
+      isChecking: false,
+      timerInterval: null
     };
+
+    state.practice.timerInterval = setInterval(() => {
+      if (!state.practice || window.location.hash.indexOf('#practice') === -1) {
+        clearInterval(state.practice?.timerInterval);
+        return;
+      }
+      state.practice.secondsRemaining--;
+      const timerEl = document.getElementById('exam-timer-display');
+      if (timerEl) {
+        timerEl.innerHTML = `⏱️ ${formatExamTime(state.practice.secondsRemaining)}`;
+        if (state.practice.secondsRemaining <= 300) {
+          timerEl.classList.add('timer-warning');
+        }
+      }
+      if (state.practice.secondsRemaining <= 0) {
+        clearInterval(state.practice.timerInterval);
+        showToast('Time is up! Submitting exam...', 'info');
+        window.finishAndSubmitExam();
+      }
+    }, 1000);
     
     renderCurrentQuestion(container);
   } catch (err) {
@@ -789,136 +865,232 @@ async function renderPractice(container, deptId, subjectId, type, yearStr, mode)
 
 function renderCurrentQuestion(container) {
   const p = state.practice;
-  if (p.currentIndex >= p.questions.length) {
-    window.location.hash = '#results';
+  if (!p || p.currentIndex >= p.questions.length) {
+    window.finishAndSubmitExam();
     return;
   }
   
   const q = p.questions[p.currentIndex];
-  const progressPct = ((p.currentIndex) / p.questions.length) * 100;
+  const answeredCount = p.answers.filter(a => a !== null).length;
+  const progressPct = Math.round((answeredCount / p.questions.length) * 100);
   
+  // Find Department and Subject Names
+  const dept = state.departments.find(d => String(d.id) === String(p.deptId));
+  const subject = dept ? dept.subjects.find(s => String(s.id) === String(p.subjectId)) : null;
+  const deptName = dept ? dept.name : 'University';
+  const subjectName = subject ? subject.name : 'General Subject';
+
   const bookmarks = getBookmarks();
   const isBookmarked = bookmarks.some(b => b.id === q.id);
   
-  let optionsHtml = '';
   const labels = ['A', 'B', 'C', 'D', 'E', 'F'];
   
+  // Question Grid Palette Items
+  let paletteHtml = '';
+  p.questions.forEach((_, idx) => {
+    let classes = 'palette-btn';
+    if (idx === p.currentIndex) classes += ' current';
+    if (p.answers[idx] !== null) classes += ' answered';
+    paletteHtml += `<button class="${classes}" onclick="window.jumpToQuestion(${idx})">${idx + 1}</button>`;
+  });
+
+  // Options List HTML
+  let optionsHtml = '';
   q.options.forEach((opt, idx) => {
-    let classes = 'option-btn';
-    let isSelected = p.answers[p.currentIndex] === idx;
+    let classes = 'exam-option-item';
+    const isSelected = p.answers[p.currentIndex] === idx;
     
     if (isSelected) classes += ' selected';
     
     if (p.mode === 'instant' && p.isChecking) {
-      classes += ' disabled';
       if (idx === q.correctAnswer) classes += ' correct';
       else if (isSelected) classes += ' incorrect';
     }
     
     optionsHtml += `
-      <button class="${classes}" data-idx="${idx}" ${p.isChecking ? 'disabled' : ''}>
-        <span class="option-label">${labels[idx]}</span>
-        <span class="option-text">${opt}</span>
-      </button>
+      <div class="${classes}" data-idx="${idx}">
+        <div class="exam-option-radio"></div>
+        <div style="flex: 1;">
+          <span class="exam-option-label">${labels[idx]}.</span>
+          <span>${opt}</span>
+        </div>
+      </div>
     `;
   });
-  
+
+  const avgSecsPerQ = Math.max(15, Math.round(p.totalSeconds / p.questions.length));
+
   container.innerHTML = `
-    <div class="question-wrapper">
-      <div class="practice-header">
-        <div class="practice-header-left">
-          <span class="badge ${p.type === 'mock' ? 'badge-warning' : 'badge-primary'}">${p.type.toUpperCase()}</span>
-          <span style="color: var(--text-secondary); font-size: 0.95rem; margin-left: 12px; font-weight: 500;">Question ${p.currentIndex + 1} of ${p.questions.length}</span>
+    <div class="exam-page-container">
+      <!-- Top Exam Navigation Bar -->
+      <div class="exam-topbar">
+        <div class="exam-title-group">
+          <h2>${deptName} Exit Exam</h2>
+          <p>Module: ${subjectName} &bull; <span style="text-transform: capitalize;">${p.type === 'previous' ? 'Previous Exam' : (p.type === 'mock' ? 'Simulated Mock' : 'Topic Practice')}</span></p>
         </div>
-        <div class="practice-header-right">
-          <button class="btn btn-outline" style="padding: 6px 14px; font-size: 0.85rem;" id="btn-bookmark">
-            ${isBookmarked ? '⭐ Bookmarked' : '☆ Bookmark'}
+        <div class="exam-topbar-actions">
+          <button class="btn btn-outline" style="padding: 8px 16px; font-size: 0.9rem;" onclick="window.quitPractice()">
+            &larr; Exit
           </button>
-          <button class="btn btn-outline" style="padding: 6px 14px; font-size: 0.85rem; border-color: var(--accent); color: var(--accent);" onclick="window.quitPractice()">
-            Quit
+          <div class="exam-timer-pill ${p.secondsRemaining <= 300 ? 'timer-warning' : ''}" id="exam-timer-display">
+            ⏱️ ${formatExamTime(p.secondsRemaining)}
+          </div>
+          <button class="btn btn-primary" style="padding: 8px 20px; font-weight: 600;" onclick="window.submitTestConfirm()">
+            Submit Test
           </button>
         </div>
       </div>
-      
-      <div class="progress-bar-container">
-        <div class="progress-bar-fill" style="width: ${progressPct}%"></div>
-      </div>
-      
-      <div class="glass-card practice-card-responsive" style="margin-top: 30px; padding: 40px 30px; border-radius: 16px;">
-        <div class="question-text">${q.question}</div>
-        
-        <div class="options-list" id="options-container" style="display: flex; flex-direction: column; gap: 12px;">
-          ${optionsHtml}
-        </div>
-        
-        ${(p.mode === 'instant' && p.isChecking) ? `
-          <div class="explanation-box">
-            <div class="explanation-title">💡 Explanation</div>
-            <div class="explanation-text">${q.explanation || 'No explanation provided.'}</div>
+
+      <!-- Main Layout Grid -->
+      <div class="exam-layout-grid">
+        <!-- Sidebar Question Grid -->
+        <aside class="exam-sidebar-card">
+          <div class="exam-sidebar-meta">
+            <h4><span>🇪🇹</span> ExitPrep Ethiopia</h4>
+            <p>Online Exam Practice &bull; Timed</p>
           </div>
-          <div class="mobile-full-width" style="margin-top: 30px; text-align: right;">
-            <button class="btn btn-primary btn-lg" id="btn-next">Next Question ➔</button>
+
+          <div class="question-grid-header">
+            <span>Question Grid</span>
+            <span style="font-size: 0.8rem; color: var(--eth-green); font-weight: 700;">${answeredCount}/${p.questions.length}</span>
           </div>
-        ` : `
-          <div class="mobile-full-width" style="margin-top: 30px; text-align: right;">
-            ${p.mode === 'instant' ? 
-              `<button class="btn btn-primary btn-lg" id="btn-check" ${p.answers[p.currentIndex] === null ? 'disabled' : ''}>Check Answer</button>` :
-              `<button class="btn btn-primary btn-lg" id="btn-next" ${p.answers[p.currentIndex] === null ? 'disabled' : ''}>${p.currentIndex === p.questions.length - 1 ? 'Finish Exam' : 'Next ➔'}</button>`
-            }
+
+          <div class="palette-grid">
+            ${paletteHtml}
           </div>
-        `}
+
+          <div class="exam-sidebar-stats">
+            <div class="exam-stat-row">
+              <span>Overall Progress</span>
+              <strong>${progressPct}%</strong>
+            </div>
+            <div class="exam-mini-progress">
+              <div class="exam-mini-progress-fill" style="width: ${progressPct}%;"></div>
+            </div>
+          </div>
+        </aside>
+
+        <!-- Right Main Question Area -->
+        <main class="exam-main-card">
+          <div class="exam-q-meta-bar">
+            <div class="exam-q-tags">
+              <span class="exam-tag-pill"># ${subjectName}</span>
+              <span class="badge ${p.type === 'mock' ? 'badge-warning' : 'badge-primary'}" style="font-size: 0.75rem;">${p.type.toUpperCase()}</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <span class="exam-time-tag">⏱️ Target: ~${avgSecsPerQ}s / Q</span>
+              <button class="exam-bookmark-btn ${isBookmarked ? 'active' : ''}" id="btn-bookmark">
+                ${isBookmarked ? '★ Bookmarked' : '☆ Bookmark'}
+              </button>
+            </div>
+          </div>
+
+          <div class="progress-bar-container" style="margin-bottom: 24px;">
+            <div class="progress-bar-fill" style="width: ${((p.currentIndex + 1) / p.questions.length) * 100}%;"></div>
+          </div>
+
+          <div class="exam-q-num-label">Question ${p.currentIndex + 1} of ${p.questions.length}</div>
+          <h3 class="exam-question-heading">${q.question}</h3>
+
+          <div class="exam-options-list" id="exam-options-container">
+            ${optionsHtml}
+          </div>
+
+          ${(p.mode === 'instant' && p.isChecking) ? `
+            <div class="explanation-box" style="margin-bottom: 25px;">
+              <div class="explanation-title">💡 Explanation</div>
+              <div class="explanation-text">${q.explanation || 'No explanation provided.'}</div>
+            </div>
+          ` : ''}
+
+          <!-- Footer Actions -->
+          <div class="exam-actions-footer">
+            ${p.mode === 'finish' ? `
+              <button class="btn btn-secondary" onclick="window.jumpToQuestion(${p.currentIndex - 1})" ${p.currentIndex === 0 ? 'disabled' : ''}>
+                &larr; Previous Question
+              </button>
+              <div style="display: flex; gap: 10px;">
+                ${p.currentIndex === p.questions.length - 1 ? `
+                  <button class="btn btn-primary btn-lg" onclick="window.submitTestConfirm()">
+                    Submit Test &rarr;
+                  </button>
+                ` : `
+                  <button class="btn btn-primary btn-lg" onclick="window.jumpToQuestion(${p.currentIndex + 1})">
+                    Next Question &rarr;
+                  </button>
+                `}
+              </div>
+            ` : `
+              <div></div>
+              <div>
+                ${!p.isChecking ? `
+                  <button class="btn btn-primary btn-lg" id="btn-check" ${p.answers[p.currentIndex] === null ? 'disabled' : ''}>
+                    Check Answer
+                  </button>
+                ` : `
+                  <button class="btn btn-primary btn-lg" id="btn-next">
+                    ${p.currentIndex === p.questions.length - 1 ? 'Finish Practice &rarr;' : 'Next Question &rarr;'}
+                  </button>
+                `}
+              </div>
+            `}
+          </div>
+        </main>
       </div>
     </div>
   `;
-  
+
   // Attach event listeners
-  const optionsContainer = document.getElementById('options-container');
-  optionsContainer.addEventListener('click', (e) => {
-    if (p.isChecking) return; // disabled
-    const btn = e.target.closest('.option-btn');
-    if (!btn) return;
-    
-    const idx = parseInt(btn.getAttribute('data-idx'));
-    p.answers[p.currentIndex] = idx;
-    
-    // Re-render specifically the options to update selection
-    Array.from(optionsContainer.children).forEach(child => child.classList.remove('selected'));
-    btn.classList.add('selected');
-    
-    const actionBtn = document.getElementById(p.mode === 'instant' ? 'btn-check' : 'btn-next');
-    if (actionBtn) actionBtn.disabled = false;
-  });
-  
-  document.getElementById('btn-bookmark').addEventListener('click', (e) => {
-    let b = getBookmarks();
-    if (isBookmarked) {
-      b = b.filter(x => x.id !== q.id);
-      e.target.classList.remove('active');
-      showToast('Removed from bookmarks');
-    } else {
-      b.push(q);
-      e.target.classList.add('active');
-      showToast('Added to bookmarks');
-    }
-    saveBookmarks(b);
-  });
-  
-  if (document.getElementById('btn-check')) {
-    document.getElementById('btn-check').addEventListener('click', () => {
-      p.isChecking = true;
-      if (p.answers[p.currentIndex] === q.correctAnswer) p.score++;
-      renderCurrentQuestion(container); // Re-render to show feedback
+  const optionsContainer = document.getElementById('exam-options-container');
+  if (optionsContainer) {
+    optionsContainer.addEventListener('click', (e) => {
+      if (p.isChecking) return;
+      const item = e.target.closest('.exam-option-item');
+      if (!item) return;
+
+      const idx = parseInt(item.getAttribute('data-idx'));
+      p.answers[p.currentIndex] = idx;
+
+      // Re-render question view to update active state & question grid
+      renderCurrentQuestion(container);
     });
   }
-  
-  if (document.getElementById('btn-next')) {
-    document.getElementById('btn-next').addEventListener('click', () => {
-      if (p.mode === 'finish' && p.answers[p.currentIndex] === q.correctAnswer) {
-        p.score++;
+
+  const bookmarkBtn = document.getElementById('btn-bookmark');
+  if (bookmarkBtn) {
+    bookmarkBtn.addEventListener('click', (e) => {
+      let b = getBookmarks();
+      if (isBookmarked) {
+        b = b.filter(x => x.id !== q.id);
+        showToast('Removed from bookmarks');
+      } else {
+        b.push(q);
+        showToast('Added to bookmarks');
       }
-      p.currentIndex++;
-      p.isChecking = false;
+      saveBookmarks(b);
       renderCurrentQuestion(container);
+    });
+  }
+
+  const btnCheck = document.getElementById('btn-check');
+  if (btnCheck) {
+    btnCheck.addEventListener('click', () => {
+      p.isChecking = true;
+      if (p.answers[p.currentIndex] === q.correctAnswer) p.score++;
+      renderCurrentQuestion(container);
+    });
+  }
+
+  const btnNext = document.getElementById('btn-next');
+  if (btnNext) {
+    btnNext.addEventListener('click', () => {
+      p.isChecking = false;
+      if (p.currentIndex === p.questions.length - 1) {
+        window.finishAndSubmitExam();
+      } else {
+        p.currentIndex++;
+        renderCurrentQuestion(container);
+      }
     });
   }
 }

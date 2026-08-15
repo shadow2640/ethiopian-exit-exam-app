@@ -714,12 +714,17 @@
 
         // ================= USER MANAGEMENT =================
         function renderUsers() {
-            document.getElementById('stat-total-users').textContent = state.users.length;
+            let visibleUsers = state.users;
+            if (currentUser && currentUser.role !== 'owner') {
+                visibleUsers = state.users.filter(u => u.role !== 'admin' && u.role !== 'owner');
+            }
+
+            document.getElementById('stat-total-users').textContent = visibleUsers.length;
             document.getElementById('stat-questions').textContent = state.questions.length;
 
-            const pending = state.users.filter(u => !u.is_paid && u.transaction_id);
-            const active = state.users.filter(u => u.is_paid);
-            const inactive = state.users.filter(u => !u.is_paid && !u.transaction_id);
+            const pending = visibleUsers.filter(u => !u.is_paid && u.transaction_id);
+            const active = visibleUsers.filter(u => u.is_paid);
+            const inactive = visibleUsers.filter(u => !u.is_paid && !u.transaction_id);
 
             document.getElementById('stat-pending').textContent = pending.length;
             document.getElementById('stat-active').textContent = active.length;

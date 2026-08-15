@@ -478,20 +478,29 @@ async function renderPayment(container) {
     
     container.innerHTML = `
       <div class="glass-card" style="max-width: 600px; margin: 40px auto;">
-        <h2 style="text-align:center; margin-bottom: 10px;">💳 Upgrade to Premium</h2>
-        <p style="text-align:center; color: var(--text-secondary); margin-bottom: 10px;">Pay <strong style="color: var(--primary);">200 ETB</strong> one-time to unlock everything.</p>
-        <p style="text-align:center; color: var(--text-muted); font-size: 0.85rem; margin-bottom: 30px;">Transfer to one of the accounts below, then submit your details.</p>
-        
-        <div class="grid grid-2" style="margin-bottom: 30px;">
-          <div class="glass-card" style="text-align:center; padding: 20px;">
-            <div style="font-size: 2rem; margin-bottom: 10px;">📱</div>
-            <h3 style="margin-bottom: 10px;">Telebirr</h3>
-            <p style="font-size: 1.2rem; font-weight: bold; color: var(--primary);">0910507548</p>
+        <h2 style="text-align:center; color: var(--eth-yellow); margin-bottom: 10px;">Upgrade to Premium</h2>
+        <p style="text-align:center; color: var(--text-muted); margin-bottom: 25px;">
+          Get unlimited mock exams, track your progress over time, and unlock all subjects.
+        </p>
+
+        <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); padding: 20px; border-radius: var(--radius-md); margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <h3 style="color: var(--eth-green); margin-bottom: 5px;">Start Your Free Trial</h3>
+            <p style="font-size: 0.9rem; color: var(--text-muted);">Try 10 practice questions completely for free before deciding.</p>
           </div>
-          <div class="glass-card" style="text-align:center; padding: 20px;">
+          <a href="#home" class="btn btn-outline" style="white-space: nowrap; margin-left: 15px;">Start Free Trial</a>
+        </div>
+        
+        <div class="grid grid-2" style="margin-bottom: 25px;">
+          <div style="background: var(--bg-card); padding: 15px; border-radius: var(--radius-md); text-align: center;">
+            <div style="font-size: 2rem; margin-bottom: 10px;">📱</div>
+            <div style="font-weight: bold;">Telebirr</div>
+            <div style="color: var(--eth-green); font-family: monospace; font-size: 1.1rem; margin-top: 5px;">0910507548</div>
+          </div>
+          <div style="background: var(--bg-card); padding: 15px; border-radius: var(--radius-md); text-align: center;">
             <div style="font-size: 2rem; margin-bottom: 10px;">🏦</div>
-            <h3 style="margin-bottom: 10px;">CBE</h3>
-            <p style="font-size: 1.2rem; font-weight: bold; color: var(--secondary);">1000310040065</p>
+            <div style="font-weight: bold;">CBE</div>
+            <div style="color: var(--eth-green); font-family: monospace; font-size: 1.1rem; margin-top: 5px;">1000310040065</div>
           </div>
         </div>
         
@@ -506,6 +515,10 @@ async function renderPayment(container) {
           </div>
           <button type="submit" class="btn btn-primary" style="width: 100%;">Submit for Approval</button>
         </form>
+        
+        <div style="text-align: center; margin-top: 20px;">
+          <a href="#home" style="color: var(--text-muted); text-decoration: none; font-size: 0.9rem;">I'll pay later, take me to Home</a>
+        </div>
       </div>
     `;
     

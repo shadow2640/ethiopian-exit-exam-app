@@ -48,6 +48,18 @@ function saveBookmarks(bookmarks) {
   localStorage.setItem('exitprep_bookmarks', JSON.stringify(bookmarks));
 }
 
+window.quitPractice = async function() {
+  if (state.user && !state.user.is_paid && state.practice && state.practice.currentIndex > 0) {
+    await apiCall('/user/track-usage', {
+      method: 'POST',
+      body: JSON.stringify({ count: state.practice.currentIndex })
+    }).catch(console.error);
+    state.user.free_questions_used = (state.user.free_questions_used || 0) + state.practice.currentIndex;
+    saveUser(state.token, state.user);
+  }
+  window.location.hash = '#home';
+};
+
 // API Utilities
 async function apiCall(endpoint, options = {}) {
   const headers = { 'Content-Type': 'application/json' };
@@ -160,13 +172,23 @@ window.addEventListener('hashchange', handleRoute);
 
 // Views
 
-function renderProfile(container) {
+async function renderProfile(container) {
   if (!state.user) return window.location.hash = '#login';
 
+  try {
+    const data = await apiCall('/user/me');
+    if (data && data.user) {
+      saveUser(state.token, data.user);
+    }
+  } catch (e) {
+    console.warn('Failed to refresh user profile:', e);
+  }
+
   const isPremium = state.user.is_paid === 1;
+  const usedCount = state.user.free_questions_used || 0;
   const statusHtml = isPremium 
     ? `<span class="badge" style="background: var(--eth-green); color: white; padding: 5px 10px; border-radius: 20px;">Premium User</span>`
-    : `<span class="badge" style="background: var(--accent); color: white; padding: 5px 10px; border-radius: 20px;">Free Trial (${state.user.free_questions_used} / 10 used)</span>`;
+    : `<span class="badge" style="background: var(--accent); color: white; padding: 5px 10px; border-radius: 20px;">Free Trial (${usedCount} / 10 used)</span>`;
 
   container.innerHTML = `
     <div class="section-header">
@@ -549,7 +571,16 @@ async function renderPayment(container) {
   }
 }
 
-function renderDepartment(container, deptId) {
+async function renderDepartment(container, deptId) {
+  if (!state.departments || state.departments.length === 0) {
+    try {
+      const data = await apiCall('/departments');
+      state.departments = data.departments || [];
+    } catch (e) {
+      console.error('Failed to load departments:', e);
+    }
+  }
+
   const dept = state.departments.find(d => d.id === deptId);
   if (!dept) {
     window.location.hash = '#home';
@@ -588,7 +619,16 @@ function renderDepartment(container, deptId) {
   container.innerHTML = html;
 }
 
-function renderSubject(container, deptId, subjectId) {
+async function renderSubject(container, deptId, subjectId) {
+  if (!state.departments || state.departments.length === 0) {
+    try {
+      const data = await apiCall('/departments');
+      state.departments = data.departments || [];
+    } catch (e) {
+      console.error('Failed to load departments:', e);
+    }
+  }
+
   const dept = state.departments.find(d => d.id === deptId);
   const subject = dept?.subjects.find(s => s.id === subjectId);
   if (!subject) return window.location.hash = '#home';
@@ -944,7 +984,7 @@ function renderResults(container) {
   };
   
   window.quitPractice = async function() {
-    if (!state.user.is_paid && state.practice.currentIndex > 0) {
+    if (state.user && !state.user.is_paid && state.practice && state.practice.currentIndex > 0) {
       await apiCall('/user/track-usage', {
         method: 'POST',
         body: JSON.stringify({ count: state.practice.currentIndex })
@@ -1010,8 +1050,17 @@ function renderResults(container) {
   container.innerHTML = html;
 }
 
-function renderProgress(container) {
+async function renderProgress(container) {
   if (!state.user) return window.location.hash = '#login';
+
+  if (!state.departments || state.departments.length === 0) {
+    try {
+      const data = await apiCall('/departments');
+      state.departments = data.departments || [];
+    } catch (e) {
+      console.error('Failed to load departments:', e);
+    }
+  }
   
   const prog = getProgress();
   let totalQs = 0;

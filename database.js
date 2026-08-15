@@ -35,6 +35,9 @@ async function initDb() {
           transaction_id TEXT,
           full_name TEXT,
           token_version INTEGER DEFAULT 0,
+          role TEXT DEFAULT 'student',
+          must_change_password BOOLEAN DEFAULT 0,
+          free_questions_used INTEGER DEFAULT 0,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
   `);
@@ -51,6 +54,17 @@ async function initDb() {
           year INTEGER
       )
   `);
+
+  // Safe migrations for pre-existing databases
+  const migrations = [
+      `ALTER TABLE users ADD COLUMN full_name TEXT`,
+      `ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'student'`,
+      `ALTER TABLE users ADD COLUMN must_change_password BOOLEAN DEFAULT 0`,
+      `ALTER TABLE users ADD COLUMN free_questions_used INTEGER DEFAULT 0`
+  ];
+  for (const m of migrations) {
+      await db.execute(m).catch(() => {});
+  }
 }
 
 initDb().catch(err => console.error("DB Init Error:", err));

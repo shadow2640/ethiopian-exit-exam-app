@@ -7,8 +7,7 @@ const app = express();
 app.use(express.json());
 app.use(express.static(__dirname));
 
-const JWT_SECRET = 'your-super-secret-jwt-key';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'ExitPrepAdmin2026!';
+const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key';
 
 function generateToken(user) {
     return jwt.sign({ id: user.id, username: user.username, token_version: user.token_version, role: user.role }, JWT_SECRET);
@@ -16,7 +15,9 @@ function generateToken(user) {
 
 function authenticate(req, res, next) {
     const authHeader = req.headers.authorization;
-    if (!authHeader) return res.status(401).json({ error: 'No token provided' });
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'No token provided' });
+    }
     
     const token = authHeader.split(' ')[1];
     jwt.verify(token, JWT_SECRET, (err, decoded) => {
@@ -116,7 +117,8 @@ app.get('/api/questions', authenticate, (req, res) => {
     db.getQuestions({ subjectId, type, year: year ? parseInt(year) : undefined }, (err, questions) => {
         if (err) return res.status(500).json({ error: 'Server error' });
         
-        if (!req.user.is_paid) {
+        // Free trial check applies only to unpaid students (admins and owner have full access)
+        if (!req.user.is_paid && req.user.role === 'student') {
             const used = req.user.free_questions_used || 0;
             const remaining = Math.max(0, 10 - used);
             if (remaining === 0) {
@@ -239,6 +241,8 @@ app.delete('/api/admin/questions/:id', (req, res) => {
 app.post('/api/admin/set-role', requireRole(['owner']), (req, res) => {
     const { userId, role } = req.body;
     if (!['student', 'admin'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
+    if (Number(userId) === Number(req.user.id)) return res.status(400).json({ error: 'Owner cannot alter own role' });
+    
     db.updateUserRole(userId, role, (err) => {
         if (err) return res.status(500).json({ error: 'Server error' });
         res.json({ success: true });

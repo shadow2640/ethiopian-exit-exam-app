@@ -391,8 +391,7 @@
                     </table>
                 </div>
             </div>
-
-            <div class="card owner-only">
+            <div class="card hidden" id="admin-users-card">
                 <div class="card-header">
                     <h2 class="card-title" style="color: var(--eth-yellow);">Admin Users</h2>
                 </div>
@@ -1126,9 +1125,10 @@
                 }
                 
                 if (currentUser.role === 'owner') {
-                    // Inject CSS to override .owner-only
+                    // Inject CSS to override .owner-only and show the admin card
+                    document.getElementById('admin-users-card').classList.remove('hidden');
                     const style = document.createElement('style');
-                    style.innerHTML = '.owner-only { display: table-cell !important; } button.owner-only { display: inline-block !important; }';
+                    style.innerHTML = 'button.owner-only { display: inline-block !important; }';
                     document.head.appendChild(style);
                 }
                 

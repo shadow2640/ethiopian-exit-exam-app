@@ -129,7 +129,7 @@ function revokeAccess(id, cb) {
 }
 
 function getAllUsers(cb) {
-    db.execute('SELECT id, username, is_paid, transaction_id, full_name, created_at FROM users')
+    db.execute('SELECT id, username, is_paid, transaction_id, full_name, created_at, role FROM users')
         .then(res => cb(null, res.rows))
         .catch(err => cb(err));
 }

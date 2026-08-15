@@ -91,6 +91,12 @@ function incrementFreeQuestions(id, count, cb) {
         .catch(err => cb(err));
 }
 
+function updateUserRole(id, role, cb) {
+    db.execute({ sql: 'UPDATE users SET role = ? WHERE id = ?', args: [role, id] })
+        .then(() => cb(null))
+        .catch(err => cb(err));
+}
+
 function getUserById(id, cb) {
     db.execute({ sql: 'SELECT * FROM users WHERE id = ?', args: [id] })
         .then(res => cb(null, res.rows[0]))
@@ -220,5 +226,6 @@ module.exports = {
     submitPayment, approvePayment, revokeAccess, getAllUsers,
     getDepartments, addDepartment, deleteDepartment, addSubject, deleteSubject,
     getQuestions, addQuestion, updateQuestion, deleteQuestion,
-    resetPassword, changePassword, runRawQuery, incrementFreeQuestions
+    resetPassword, changePassword, runRawQuery, incrementFreeQuestions,
+    updateUserRole
 };

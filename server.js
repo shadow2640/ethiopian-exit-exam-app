@@ -11,7 +11,7 @@ const JWT_SECRET = 'your-super-secret-jwt-key';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'ExitPrepAdmin2026!';
 
 function generateToken(user) {
-    return jwt.sign({ id: user.id, username: user.username, token_version: user.token_version }, JWT_SECRET);
+    return jwt.sign({ id: user.id, username: user.username, token_version: user.token_version, role: user.role }, JWT_SECRET);
 }
 
 function authenticate(req, res, next) {
@@ -45,7 +45,7 @@ app.post('/api/auth/register', (req, res) => {
             }
             return res.status(400).json({ error: err.message });
         }
-        res.json({ token: generateToken(user), user: { id: user.id, username: user.username, is_paid: user.is_paid, must_change_password: user.must_change_password, free_questions_used: user.free_questions_used } });
+        res.json({ token: generateToken(user), user: { id: user.id, username: user.username, is_paid: user.is_paid, must_change_password: user.must_change_password, free_questions_used: user.free_questions_used, role: user.role } });
     });
 });
 
@@ -57,13 +57,13 @@ app.post('/api/auth/login', (req, res) => {
         db.incrementTokenVersion(user.id, (err, newVersion) => {
             if (err) return res.status(500).json({ error: 'Server error' });
             user.token_version = newVersion;
-            res.json({ token: generateToken(user), user: { id: user.id, username: user.username, is_paid: user.is_paid, must_change_password: user.must_change_password, free_questions_used: user.free_questions_used } });
+            res.json({ token: generateToken(user), user: { id: user.id, username: user.username, is_paid: user.is_paid, must_change_password: user.must_change_password, free_questions_used: user.free_questions_used, role: user.role } });
         });
     });
 });
 
 app.get('/api/user/me', authenticate, (req, res) => {
-    res.json({ user: { id: req.user.id, username: req.user.username, is_paid: req.user.is_paid, transaction_id: req.user.transaction_id, token_version: req.user.token_version, must_change_password: req.user.must_change_password, free_questions_used: req.user.free_questions_used } });
+    res.json({ user: { id: req.user.id, username: req.user.username, is_paid: req.user.is_paid, transaction_id: req.user.transaction_id, token_version: req.user.token_version, must_change_password: req.user.must_change_password, free_questions_used: req.user.free_questions_used, role: req.user.role } });
 });
 
 app.post('/api/user/payment', authenticate, (req, res) => {
@@ -121,16 +121,17 @@ app.get('/api/questions', authenticate, (req, res) => {
     });
 });
 
-// Admin Authentication Middleware
-function authenticateAdmin(req, res, next) {
-    const providedPassword = req.headers['x-admin-password'];
-    if (!providedPassword || providedPassword !== ADMIN_PASSWORD) {
-        return res.status(401).json({ error: 'Unauthorized: Invalid Admin Password' });
-    }
-    next();
+// Role-Based Access Control Middleware
+function requireRole(roles) {
+    return (req, res, next) => {
+        if (!roles.includes(req.user.role)) {
+            return res.status(403).json({ error: 'Forbidden: Insufficient role' });
+        }
+        next();
+    };
 }
 
-app.use('/api/admin', authenticateAdmin);
+app.use('/api/admin', authenticate, requireRole(['owner', 'admin']));
 
 // Admin Routes
 app.get('/api/admin/users', (req, res) => {
@@ -222,6 +223,15 @@ app.put('/api/admin/questions/:id', (req, res) => {
 
 app.delete('/api/admin/questions/:id', (req, res) => {
     db.deleteQuestion(req.params.id, (err) => {
+        if (err) return res.status(500).json({ error: 'Server error' });
+        res.json({ success: true });
+    });
+});
+
+app.post('/api/admin/set-role', requireRole(['owner']), (req, res) => {
+    const { userId, role } = req.body;
+    if (!['student', 'admin'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
+    db.updateUserRole(userId, role, (err) => {
         if (err) return res.status(500).json({ error: 'Server error' });
         res.json({ success: true });
     });

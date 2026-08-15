@@ -332,21 +332,10 @@
         .notif-error { background: var(--accent-red); }
         
         .hidden { display: none !important; }
+        .owner-only { display: none !important; }
     </style>
 </head>
 <body>
-    <div id="login-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg-main); z-index:9999; flex-direction:column; justify-content:center; align-items:center;">
-        <div style="background:var(--glass-bg); border: 1px solid var(--glass-border); padding:40px; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.5); width:100%; max-width:400px; backdrop-filter: blur(10px);">
-            <h2 style="margin-bottom:20px; text-align:center;">Admin Access</h2>
-            <form onsubmit="event.preventDefault(); submitAdminLogin();">
-                <div class="form-group">
-                    <label class="form-label">Admin Password</label>
-                    <input type="password" id="admin-password-input" class="form-control" required>
-                </div>
-                <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center;">Unlock Dashboard</button>
-            </form>
-        </div>
-    </div>
 
     <nav class="navbar">
         <h1>Exit Exam Admin</h1>
@@ -414,6 +403,7 @@
                                 <th>ID</th>
                                 <th>Username</th>
                                 <th>Transaction ID</th>
+                                <th class="owner-only">Role</th>
                                 <th>Action</th>
                             </tr>
                         </thead>
@@ -435,6 +425,8 @@
                                 <th>ID</th>
                                 <th>Username</th>
                                 <th>Date Joined</th>
+                                <th class="owner-only">Role</th>
+                                <th>Action</th>
                             </tr>
                         </thead>
                         <tbody id="inactive-users-table">
@@ -649,6 +641,7 @@
     <!-- Admin Scripts -->
     <script>
         const API_BASE = '/api/admin';
+        let currentUser = null;
         
         // --- Admin Authentication Override ---
         const originalFetch = window.fetch;
@@ -656,22 +649,17 @@
             let [resource, config] = arguments;
             if (!config) config = {};
             if (!config.headers) config.headers = {};
-            config.headers['x-admin-password'] = localStorage.getItem('exitprep_admin_pass') || '';
+            const token = localStorage.getItem('exitprep_token');
+            if (token) config.headers['Authorization'] = `Bearer ${token}`;
+            
             const res = await originalFetch(resource, config);
-            if (res.status === 401) {
-                localStorage.removeItem('exitprep_admin_pass');
-                document.getElementById('login-overlay').style.display = 'flex';
-                showNotification("Invalid or missing admin password", true);
+            if (res.status === 401 || res.status === 403) {
+                // If unauthorized, redirect to main app login
+                window.location.href = '/#login';
             }
             return res;
         };
 
-        function submitAdminLogin() {
-            const pass = document.getElementById('admin-password-input').value;
-            localStorage.setItem('exitprep_admin_pass', pass);
-            document.getElementById('login-overlay').style.display = 'none';
-            loadAllData();
-        }
         // -------------------------------------
 
         
@@ -747,7 +735,7 @@
                     <td>${formatDate(u.created_at)}</td>
                     <td>
                         <button class="btn btn-success btn-sm" onclick="approvePayment('${u.id}')">Approve</button>
-                        <button class="btn btn-warning btn-sm" onclick="resetPassword('${u.id}')" style="margin-left: 5px;">Reset Password</button>
+                        <button class="btn btn-warning btn-sm owner-only" onclick="resetPassword('${u.id}')" style="margin-left: 5px;">Reset Password</button>
                     </td>
                 </tr>
             `).join('');
@@ -757,9 +745,11 @@
                     <td>${u.id}</td>
                     <td>${u.username}</td>
                     <td>${u.transaction_id || 'N/A'}</td>
+                    <td class="owner-only" style="text-transform: capitalize;">${u.role}</td>
                     <td>
-                        <button class="btn btn-danger btn-sm" onclick="revokeUser('${u.id}')">Revoke Access</button>
-                        <button class="btn btn-warning btn-sm" onclick="resetPassword('${u.id}')" style="margin-left: 5px;">Reset Password</button>
+                        <button class="btn btn-danger btn-sm owner-only" onclick="revokeUser('${u.id}')">Revoke Access</button>
+                        <button class="btn btn-warning btn-sm owner-only" onclick="resetPassword('${u.id}')" style="margin-left: 5px;">Reset Password</button>
+                        ${u.role !== 'owner' ? `<button class="btn btn-secondary btn-sm owner-only" onclick="setRole('${u.id}', '${u.role === 'admin' ? 'student' : 'admin'}')" style="margin-left: 5px;">${u.role === 'admin' ? 'Remove Admin' : 'Make Admin'}</button>` : ''}
                     </td>
                 </tr>
             `).join('');
@@ -769,8 +759,10 @@
                     <td>${u.id}</td>
                     <td>${u.username}</td>
                     <td>${formatDate(u.created_at)}</td>
+                    <td class="owner-only" style="text-transform: capitalize;">${u.role}</td>
                     <td>
-                        <button class="btn btn-warning btn-sm" onclick="resetPassword('${u.id}')">Reset Password</button>
+                        <button class="btn btn-warning btn-sm owner-only" onclick="resetPassword('${u.id}')">Reset Password</button>
+                        ${u.role !== 'owner' ? `<button class="btn btn-secondary btn-sm owner-only" onclick="setRole('${u.id}', '${u.role === 'admin' ? 'student' : 'admin'}')" style="margin-left: 5px;">${u.role === 'admin' ? 'Remove Admin' : 'Make Admin'}</button>` : ''}
                     </td>
                 </tr>
             `).join('');
@@ -1068,13 +1060,44 @@
             } catch { showNotification("Error deleting question", true); }
         }
 
+        async function setRole(userId, newRole) {
+            if (!confirm(`Are you sure you want to change this user's role to ${newRole}?`)) return;
+            try {
+                const res = await fetch(`${API_BASE}/set-role`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ userId, role: newRole })
+                });
+                if (res.ok) { showNotification(`User role updated to ${newRole}`); loadAllData(); }
+            } catch { showNotification("Error updating role", true); }
+        }
+
         // Init
-        window.addEventListener('DOMContentLoaded', () => {
-            if (!localStorage.getItem('exitprep_admin_pass')) {
-                document.getElementById('login-overlay').style.display = 'flex';
-            } else {
-                document.getElementById('login-overlay').style.display = 'none';
+        window.addEventListener('DOMContentLoaded', async () => {
+            const token = localStorage.getItem('exitprep_token');
+            if (!token) return window.location.href = '/#login';
+            
+            try {
+                // Fetch user directly instead of using wrapper to catch initial auth issues easily
+                const res = await window.fetch('/api/user/me', { headers: { 'Authorization': `Bearer ${token}` } });
+                if (!res.ok) throw new Error();
+                const data = await res.json();
+                currentUser = data.user;
+                
+                if (currentUser.role !== 'owner' && currentUser.role !== 'admin') {
+                    return window.location.href = '/#home';
+                }
+                
+                if (currentUser.role === 'owner') {
+                    // Inject CSS to override .owner-only
+                    const style = document.createElement('style');
+                    style.innerHTML = '.owner-only { display: table-cell !important; } button.owner-only { display: inline-block !important; }';
+                    document.head.appendChild(style);
+                }
+                
                 loadAllData();
+            } catch (err) {
+                window.location.href = '/#login';
             }
         });
     </script>

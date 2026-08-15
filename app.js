@@ -91,6 +91,8 @@ function updateNav() {
   const loggedIn = !!state.user;
   document.getElementById('nav-progress').classList.toggle('hidden', !loggedIn);
   document.getElementById('nav-bookmarks').classList.toggle('hidden', !loggedIn);
+  const isAdmin = loggedIn && (state.user.role === 'admin' || state.user.role === 'owner');
+  document.getElementById('nav-admin').classList.toggle('hidden', !isAdmin);
   document.getElementById('nav-login').classList.toggle('hidden', loggedIn);
   document.getElementById('nav-register').classList.toggle('hidden', loggedIn);
   document.getElementById('nav-logout').classList.toggle('hidden', !loggedIn);

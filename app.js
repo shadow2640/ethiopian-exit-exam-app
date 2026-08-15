@@ -161,11 +161,17 @@ window.addEventListener('hashchange', handleRoute);
 function renderChangePassword(container) {
   if (!state.user) return window.location.hash = '#login';
   
+  const isForced = state.user.must_change_password === 1;
   container.innerHTML = `
     <div class="glass-card" style="max-width: 400px; margin: 0 auto; margin-top: 40px;">
-      <h2 style="text-align:center; margin-bottom: 20px;">Change Password Required</h2>
-      <p style="text-align:center; margin-bottom: 20px; color: var(--accent);">Your password was reset by an admin. You must choose a new password before continuing.</p>
+      <h2 style="text-align:center; margin-bottom: 20px;">${isForced ? 'Change Password Required' : 'Change Password'}</h2>
+      ${isForced ? '<p style="text-align:center; margin-bottom: 20px; color: var(--accent);">Your password was reset by an admin. You must choose a new password before continuing.</p>' : ''}
       <form id="change-password-form">
+        ${!isForced ? `
+        <div class="form-group">
+          <label class="form-label">Current Password</label>
+          <input type="password" id="old-password" class="form-input" required>
+        </div>` : ''}
         <div class="form-group">
           <label class="form-label">New Password</label>
           <input type="password" id="new-password" class="form-input" required minlength="4">
@@ -182,10 +188,11 @@ function renderChangePassword(container) {
     btn.textContent = 'Updating...';
     
     try {
+      const oldPassword = document.getElementById('old-password') ? document.getElementById('old-password').value : undefined;
       const newPassword = document.getElementById('new-password').value;
       await apiCall('/user/change-password', {
         method: 'POST',
-        body: JSON.stringify({ newPassword })
+        body: JSON.stringify({ oldPassword, newPassword })
       });
       
       state.user.must_change_password = 0;
@@ -945,8 +952,9 @@ function renderProgress(container) {
   const overallAcc = totalQs > 0 ? Math.round((totalCorrect / totalQs) * 100) : 0;
   
   let html = `
-    <div class="section-header">
+    <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
       <h2 class="section-title">Your Progress Dashboard</h2>
+      <a href="#change-password" class="btn btn-secondary btn-sm" style="text-decoration: none;">Change Password</a>
     </div>
     
     <div class="progress-overview">

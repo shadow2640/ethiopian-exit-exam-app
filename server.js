@@ -76,12 +76,20 @@ app.post('/api/user/payment', authenticate, (req, res) => {
 });
 
 app.post('/api/user/change-password', authenticate, (req, res) => {
-    const { newPassword } = req.body;
+    const { oldPassword, newPassword } = req.body;
     if (!newPassword || newPassword.length < 4) return res.status(400).json({ error: 'Password must be at least 4 characters long' });
     
-    db.changePassword(req.user.id, newPassword, (err) => {
-        if (err) return res.status(500).json({ error: 'Server error' });
-        res.json({ success: true });
+    db.getUserById(req.user.id, (err, user) => {
+        if (err || !user) return res.status(500).json({ error: 'Server error' });
+        
+        if (!user.must_change_password && user.password !== oldPassword) {
+            return res.status(400).json({ error: 'Incorrect old password' });
+        }
+        
+        db.changePassword(req.user.id, newPassword, (err) => {
+            if (err) return res.status(500).json({ error: 'Server error' });
+            res.json({ success: true });
+        });
     });
 });
 

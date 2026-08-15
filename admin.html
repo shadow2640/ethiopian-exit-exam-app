@@ -392,9 +392,30 @@
                 </div>
             </div>
 
+            <div class="card owner-only">
+                <div class="card-header">
+                    <h2 class="card-title" style="color: var(--eth-yellow);">Admin Users</h2>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Username</th>
+                                <th>Role</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-users-table">
+                            <!-- Populated via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
             <div class="card">
                 <div class="card-header">
-                    <h2 class="card-title">Active Users</h2>
+                    <h2 class="card-title">Active Students</h2>
                 </div>
                 <div style="overflow-x: auto;">
                     <table>
@@ -403,7 +424,6 @@
                                 <th>ID</th>
                                 <th>Username</th>
                                 <th>Transaction ID</th>
-                                <th class="owner-only">Role</th>
                                 <th>Action</th>
                             </tr>
                         </thead>
@@ -416,7 +436,7 @@
 
             <div class="card">
                 <div class="card-header">
-                    <h2 class="card-title">Inactive Users</h2>
+                    <h2 class="card-title">Inactive Students</h2>
                 </div>
                 <div style="overflow-x: auto;">
                     <table>
@@ -425,7 +445,6 @@
                                 <th>ID</th>
                                 <th>Username</th>
                                 <th>Date Joined</th>
-                                <th class="owner-only">Role</th>
                                 <th>Action</th>
                             </tr>
                         </thead>
@@ -722,9 +741,10 @@
             document.getElementById('stat-total-users').textContent = visibleUsers.length;
             document.getElementById('stat-questions').textContent = state.questions.length;
 
-            const pending = visibleUsers.filter(u => !u.is_paid && u.transaction_id);
-            const active = visibleUsers.filter(u => u.is_paid);
-            const inactive = visibleUsers.filter(u => !u.is_paid && !u.transaction_id);
+            const admins = state.users.filter(u => u.role === 'admin' || u.role === 'owner');
+            const pending = visibleUsers.filter(u => !u.is_paid && u.transaction_id && u.role === 'student');
+            const active = visibleUsers.filter(u => u.is_paid && u.role === 'student');
+            const inactive = visibleUsers.filter(u => !u.is_paid && !u.transaction_id && u.role === 'student');
 
             document.getElementById('stat-pending').textContent = pending.length;
             document.getElementById('stat-active').textContent = active.length;
@@ -740,21 +760,34 @@
                     <td>${formatDate(u.created_at)}</td>
                     <td>
                         <button class="btn btn-success btn-sm" onclick="approvePayment('${u.id}')">Approve</button>
-                        <button class="btn btn-warning btn-sm owner-only" onclick="resetPassword('${u.id}')" style="margin-left: 5px;">Reset Password</button>
                     </td>
                 </tr>
             `).join('');
+
+            const adminTable = document.getElementById('admin-users-table');
+            if (adminTable) {
+                adminTable.innerHTML = admins.map(u => `
+                    <tr>
+                        <td>${u.id}</td>
+                        <td>${u.username}</td>
+                        <td style="text-transform: capitalize; color: ${u.role === 'owner' ? 'var(--eth-yellow)' : 'inherit'};"><strong>${u.role}</strong></td>
+                        <td>
+                            <button class="btn btn-warning btn-sm" onclick="resetPassword('${u.id}')" style="margin-right: 5px;">Reset Password</button>
+                            ${u.role !== 'owner' ? `<button class="btn btn-danger btn-sm" onclick="setRole('${u.id}', 'student')">Revoke Admin</button>` : ''}
+                        </td>
+                    </tr>
+                `).join('');
+            }
 
             document.getElementById('active-users-table').innerHTML = active.map(u => `
                 <tr>
                     <td>${u.id}</td>
                     <td>${u.username}</td>
                     <td>${u.transaction_id || 'N/A'}</td>
-                    <td class="owner-only" style="text-transform: capitalize;">${u.role}</td>
                     <td>
-                        <button class="btn btn-danger btn-sm owner-only" onclick="revokeUser('${u.id}')">Revoke Access</button>
-                        <button class="btn btn-warning btn-sm owner-only" onclick="resetPassword('${u.id}')" style="margin-left: 5px;">Reset Password</button>
-                        ${u.role !== 'owner' ? `<button class="btn btn-secondary btn-sm owner-only" onclick="setRole('${u.id}', '${u.role === 'admin' ? 'student' : 'admin'}')" style="margin-left: 5px;">${u.role === 'admin' ? 'Revoke Admin' : 'Make Admin'}</button>` : ''}
+                        <button class="btn btn-danger btn-sm" onclick="revokeUser('${u.id}')">Revoke Access</button>
+                        <button class="btn btn-warning btn-sm" onclick="resetPassword('${u.id}')" style="margin-left: 5px;">Reset Password</button>
+                        <button class="btn btn-secondary btn-sm owner-only" onclick="setRole('${u.id}', 'admin')" style="margin-left: 5px;">Make Admin</button>
                     </td>
                 </tr>
             `).join('');
@@ -764,10 +797,9 @@
                     <td>${u.id}</td>
                     <td>${u.username}</td>
                     <td>${formatDate(u.created_at)}</td>
-                    <td class="owner-only" style="text-transform: capitalize;">${u.role}</td>
                     <td>
-                        <button class="btn btn-warning btn-sm owner-only" onclick="resetPassword('${u.id}')">Reset Password</button>
-                        ${u.role !== 'owner' ? `<button class="btn btn-secondary btn-sm owner-only" onclick="setRole('${u.id}', '${u.role === 'admin' ? 'student' : 'admin'}')" style="margin-left: 5px;">${u.role === 'admin' ? 'Revoke Admin' : 'Make Admin'}</button>` : ''}
+                        <button class="btn btn-warning btn-sm" onclick="resetPassword('${u.id}')">Reset Password</button>
+                        <button class="btn btn-secondary btn-sm owner-only" onclick="setRole('${u.id}', 'admin')" style="margin-left: 5px;">Make Admin</button>
                     </td>
                 </tr>
             `).join('');

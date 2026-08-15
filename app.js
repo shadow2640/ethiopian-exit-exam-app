@@ -89,6 +89,7 @@ function showToast(message, type = 'info') {
 
 function updateNav() {
   const loggedIn = !!state.user;
+  document.getElementById('nav-profile').classList.toggle('hidden', !loggedIn);
   document.getElementById('nav-progress').classList.toggle('hidden', !loggedIn);
   document.getElementById('nav-bookmarks').classList.toggle('hidden', !loggedIn);
   const isAdmin = loggedIn && (state.user.role === 'admin' || state.user.role === 'owner');
@@ -148,6 +149,7 @@ function handleRoute() {
     case 'practice': renderPractice(content, parts[1], parts[2], parts[3], parts[4], parts[5]); break;
     case 'results': renderResults(content); break;
     case 'progress': renderProgress(content); break;
+    case 'profile': renderProfile(content); break;
     case 'bookmarks': renderBookmarks(content); break;
     default: renderHome(content); break;
   }
@@ -157,6 +159,67 @@ window.addEventListener('load', handleRoute);
 window.addEventListener('hashchange', handleRoute);
 
 // Views
+
+function renderProfile(container) {
+  if (!state.user) return window.location.hash = '#login';
+
+  const isPremium = state.user.is_paid === 1;
+  const statusHtml = isPremium 
+    ? `<span class="badge" style="background: var(--eth-green); color: white; padding: 5px 10px; border-radius: 20px;">Premium User</span>`
+    : `<span class="badge" style="background: var(--accent); color: white; padding: 5px 10px; border-radius: 20px;">Free Trial (${state.user.free_questions_used} / 10 used)</span>`;
+
+  container.innerHTML = `
+    <div class="section-header">
+      <h2 class="section-title">My Profile</h2>
+    </div>
+    <div class="grid grid-2" style="margin-top: 20px; align-items: start;">
+      <div class="glass-card">
+        <h3 style="margin-bottom: 20px; color: var(--eth-yellow);"><i class="fas fa-user"></i> Account Details</h3>
+        <p style="margin-bottom: 15px;"><strong>Username:</strong> ${state.user.username}</p>
+        <p style="margin-bottom: 15px;"><strong>Status:</strong> ${statusHtml}</p>
+        ${!isPremium ? `<p style="font-size: 0.9rem; color: var(--text-muted);">Upgrade to Premium for unlimited questions and full access to Mock Exams.</p>
+        <a href="#payment" class="btn btn-primary" style="margin-top: 15px; display: inline-block;">Upgrade Now</a>` : ''}
+      </div>
+
+      <div class="glass-card">
+        <h3 style="margin-bottom: 20px; color: var(--eth-yellow);"><i class="fas fa-lock"></i> Change Password</h3>
+        <form id="profile-change-password-form">
+          <div class="form-group">
+            <label class="form-label">Current Password</label>
+            <input type="password" id="prof-old-password" class="form-input" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">New Password</label>
+            <input type="password" id="prof-new-password" class="form-input" required minlength="4">
+          </div>
+          <button type="submit" class="btn btn-secondary" style="width: 100%;">Update Password</button>
+        </form>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('profile-change-password-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = e.target.querySelector('button');
+    btn.textContent = 'Updating...';
+    
+    try {
+      const oldPassword = document.getElementById('prof-old-password').value;
+      const newPassword = document.getElementById('prof-new-password').value;
+      await apiCall('/user/change-password', {
+        method: 'POST',
+        body: JSON.stringify({ oldPassword, newPassword })
+      });
+      
+      showToast('Password updated successfully!', 'success');
+      e.target.reset();
+    } catch (err) {
+      showToast(err.data?.error || 'Failed to update password', 'error');
+    } finally {
+      btn.textContent = 'Update Password';
+    }
+  });
+}
 
 function renderChangePassword(container) {
   if (!state.user) return window.location.hash = '#login';
@@ -952,9 +1015,8 @@ function renderProgress(container) {
   const overallAcc = totalQs > 0 ? Math.round((totalCorrect / totalQs) * 100) : 0;
   
   let html = `
-    <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
+    <div class="section-header">
       <h2 class="section-title">Your Progress Dashboard</h2>
-      <a href="#change-password" class="btn btn-secondary btn-sm" style="text-decoration: none;">Change Password</a>
     </div>
     
     <div class="progress-overview">

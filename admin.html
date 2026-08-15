@@ -749,7 +749,7 @@
                     <td>
                         <button class="btn btn-danger btn-sm owner-only" onclick="revokeUser('${u.id}')">Revoke Access</button>
                         <button class="btn btn-warning btn-sm owner-only" onclick="resetPassword('${u.id}')" style="margin-left: 5px;">Reset Password</button>
-                        ${u.role !== 'owner' ? `<button class="btn btn-secondary btn-sm owner-only" onclick="setRole('${u.id}', '${u.role === 'admin' ? 'student' : 'admin'}')" style="margin-left: 5px;">${u.role === 'admin' ? 'Remove Admin' : 'Make Admin'}</button>` : ''}
+                        ${u.role !== 'owner' ? `<button class="btn btn-secondary btn-sm owner-only" onclick="setRole('${u.id}', '${u.role === 'admin' ? 'student' : 'admin'}')" style="margin-left: 5px;">${u.role === 'admin' ? 'Revoke Admin' : 'Make Admin'}</button>` : ''}
                     </td>
                 </tr>
             `).join('');
@@ -762,7 +762,7 @@
                     <td class="owner-only" style="text-transform: capitalize;">${u.role}</td>
                     <td>
                         <button class="btn btn-warning btn-sm owner-only" onclick="resetPassword('${u.id}')">Reset Password</button>
-                        ${u.role !== 'owner' ? `<button class="btn btn-secondary btn-sm owner-only" onclick="setRole('${u.id}', '${u.role === 'admin' ? 'student' : 'admin'}')" style="margin-left: 5px;">${u.role === 'admin' ? 'Remove Admin' : 'Make Admin'}</button>` : ''}
+                        ${u.role !== 'owner' ? `<button class="btn btn-secondary btn-sm owner-only" onclick="setRole('${u.id}', '${u.role === 'admin' ? 'student' : 'admin'}')" style="margin-left: 5px;">${u.role === 'admin' ? 'Revoke Admin' : 'Make Admin'}</button>` : ''}
                     </td>
                 </tr>
             `).join('');

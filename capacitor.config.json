@@ -1,0 +1,19 @@
+{
+  "appId": "com.exitprep.ethiopia",
+  "appName": "ExitPrep Ethiopia",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "server": {
+    "url": "https://exitprep-ethiopia.onrender.com",
+    "cleartext": true,
+    "allowNavigation": [
+      "exitprep-ethiopia.onrender.com",
+      "localhost"
+    ]
+  },
+  "android": {
+    "allowMixedContent": true,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": true
+  }
+}

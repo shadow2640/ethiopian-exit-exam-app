@@ -4,9 +4,15 @@
   "description": "Ethiopian Exit Exam Practice App with Backend",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "build": "node -e \"const fs = require('fs'); if (!fs.existsSync('www')) fs.mkdirSync('www'); ['index.html', 'styles.css', 'app.js', 'manifest.json', 'sw.js', 'admin.html'].forEach(f => { if (fs.existsSync(f)) fs.copyFileSync(f, 'www/' + f); }); console.log('www built successfully');\"",
+    "cap:sync": "npm run build && npx cap sync android",
+    "cap:open": "npx cap open android"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/cli": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
     "@libsql/client": "^0.17.4",
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",

@@ -7,6 +7,8 @@ database.sqlite-wal
 Thumbs.db
 
 # Android build outputs and caches
+*.apk
+*.aab
 android/app/build/
 android/build/
 android/.gradle/
